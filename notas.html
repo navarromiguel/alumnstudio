@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <title>Calificaciones</title>
+    <meta charset="utf-8">
+    <script src="js/lib/jquery-3.1.1.min.js"></script>
+    <script type="text/javascript" src="https://d3js.org/d3.v4.min.js"></script>
+	<script src='js/lib/proteic.min.js'></script>
+    
+    <style>
+        #filtro {
+            border: solid 1px;
+            width: 22em;
+            padding: 0.5em;
+            margin-bottom: 1em;
+        }
+    </style>
+</head>
+<body>
+    <h1><a href="index.html">AlumnStudio</a></h1>
+    <button id="reset">Eliminar ficheros</button><br><br>
+    <form method="POST" action="notasAction.php" enctype="multipart/form-data">
+        <input name="fichero" type="file" required></label><br>
+        <button>Envíar</button>
+    </form>
+    <section id="main">
+        <h2>Análisis Estadístico</h2>
+        <div id="chart"></div>
+    </section>
+        
+    <section id="content">
+        <h2>Listados</h2>
+        <div id="filtro">
+            <label>Hombres <input class="sexo" type="checkbox" value="1" checked> </label>
+            <label>Mujeres <input class="sexo" value="2" type="checkbox" checked> </label>
+            <br>
+            <label>Convocatoria: </label>
+            <label>Primera <input class="convocatoria" type="checkbox" value="1" checked> </label>
+            <label>Segunda <input class="convocatoria" value="2" type="checkbox" checked> </label>
+            <label>Tercera <input class="convocatoria" value="3" type="checkbox" checked> </label>
+            
+        </div>
+        <div id="listados"></div>
+    </section>
+    
+    <script>
+        function get_maxima_nota(notas){
+            var max = 0;
+            for(var i=0; i<notas.length; i++){
+                if(notas[i].valor > max)
+                    max = notas[i].valor;
+            }
+            return max;
+        }
+        
+        function get_minima_nota(notas){
+            var min = 10;
+            for(var i=0; i<notas.length; i++){
+                if(notas[i].valor < min)
+                    min = notas[i].valor;
+            }
+            return min;
+        }
+        
+        function get_media(notas){
+            var sum = 0;
+            var no_presentados = 0;
+            for(var i=0; i<notas.length; i++){
+                var nota = notas[i].valor;
+                if(isNaN(nota)){
+                    no_presentados++;
+                    continue;
+                } else
+                    sum += nota;
+            }
+            return sum / (notas.length - no_presentados);
+        }
+        
+        function visualizar(json){
+            $('#chart').html("");
+            var data = [];
+            for(var i=0; i<json.length; i++){
+                var item = json[i];
+                var existe_max = data.find(function(el){
+                                        return el.x == item.anyo && el.key == 'Maxima';
+                                       });
+                if(existe_max){
+                    // Reemplazamos valores
+                    var existe_min = data.find(function(el){
+                                        return el.x == item.anyo && el.key == 'Minima';
+                                       });
+                    var existe_media = data.find(function(el){
+                                        return el.x == item.anyo && el.key == 'Media';
+                                       });
+                    var max = get_maxima_nota(item.notas);
+                    var min = get_minima_nota(item.notas);
+                    var media = get_media(item.notas);
+
+                    existe_max.y = max > existe_max.y ? max : existe_max.y;
+                    existe_min.y = min < existe_min.y ? min : existe_min.y;
+                    existe_media.y = (get_media(item.notas) + existe_media.y) / 2;
+                }
+                else{
+                    data.push(
+                        {
+                            'key': 'Maxima',
+                            'x': item.anyo,
+                            'y': get_maxima_nota(item.notas)
+                        }
+                    );
+                    data.push(
+                        {
+                            'key': 'Minima',
+                            'x': item.anyo,
+                            'y': get_minima_nota(item.notas)
+                        }
+                    );
+                    data.push(
+                        {
+                            'key': 'Media',
+                            'x': item.anyo,
+                            'y': get_media(item.notas)
+                        }
+                    );
+                }
+            }
+            var barchart = new proteic.Barchart(data, {
+                xAxisLabel: 'Curso',
+                yAxisLabel: 'Nota',
+                stacked: false,
+                width: '100%',
+                height: 250
+            });
+            barchart.draw();
+        }
+        
+        
+        function filtrar(){
+            var valores={tipo: 'filtrado', sexo: [], convocatoria: []};
+            $('.sexo').each(function(index){
+                if($(this).is(":checked"))
+                    valores.sexo.push($(this).attr("value"));
+            });
+            $('.convocatoria').each(function(index){
+                if($(this).is(":checked"))
+                    valores.convocatoria.push($(this).attr("value"));
+            });
+            
+            $.ajax({
+                type: "POST",
+                url: "notasAction.php",
+                data: valores
+            }).done(function(data) {
+                crearLista(data);
+                visualizar(data);
+            });    
+        }
+        
+        $('.sexo').each(function(index){
+            $(this).change(function() {
+                filtrar();      
+            });
+        });
+        $('.convocatoria').each(function(index){
+            $(this).change(function() {
+                filtrar();      
+            });
+        });
+            
+            
+            
+            
+        
+        function crearLista(data){
+            $('#listados').html("");
+            for(var i=0; i<data.length; i++){
+                var item = data[i];
+                var asignatura = item.id;
+                var anyo = item.anyo;
+                var convocatoria = item.convocatoria;
+                var div = document.createElement('div');
+                var span = document.createElement('span');
+                span.innerHTML = asignatura + " _ " + anyo + " _ " + convocatoria;
+                var link = document.createElement('a');
+                link.className = "mostrar_ocultar_tabla";
+                link.id = 'link_' + i;
+                link.setAttribute('href', '#');
+                link.innerHTML = " Mostrar/Ocultar";
+                div.appendChild(span);
+                div.appendChild(link);
+                
+                var table = document.createElement('table');
+                table.id = 'table_' + i;
+                var thead = document.createElement('thead');
+                var tbody = document.createElement('tbody');
+                var thead_row = document.createElement('tr');
+                var th_alumno = document.createElement('th');
+                var th_nota = document.createElement('th');
+                
+                th_alumno.innerHTML = 'Alumno';
+                th_nota.innerHTML = 'Nota';
+                div.appendChild(table);
+                thead_row.appendChild(th_alumno);
+                thead_row.appendChild(th_nota);
+                thead.appendChild(thead_row);
+                table.appendChild(thead);
+                table.appendChild(tbody);
+                for(var j=0; j<item.notas.length; j++) {
+                    var row = document.createElement('tr');
+                    var td_alumno = document.createElement('td');
+                    td_alumno.innerHTML = item.notas[j].id;
+                    row.appendChild(td_alumno);
+                    var td_nota = document.createElement('td');
+                    td_nota.innerHTML = item.notas[j].valor;
+                    row.appendChild(td_nota);
+                    tbody.appendChild(row);
+                }
+                $('#listados').append(div);
+                $('#table_' + i).hide();
+                
+            }
+            $(".mostrar_ocultar_tabla").each(function(index){
+                $(this).click(function(){
+                    var k = this.id.split('_')[1];
+                    $('#table_' + k).toggle();
+                });
+            });
+        }
+        
+        
+        $.getJSON( "notasAction.php", function( data ) {
+            visualizar(data);
+            crearLista(data);
+        });
+          
+        $('#reset').click(function() {
+
+         $.ajax({
+          type: "POST",
+          url: "resetAction.php"
+        }).done(function(data) {
+             location.reload();
+        });    
+
+        });
+    
+    </script>
+</body>
+</html>

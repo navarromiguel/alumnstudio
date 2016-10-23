@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <title>Alumnos</title>    
+    <meta charset="utf-8">
+    <script src="js/lib/jquery-3.1.1.min.js"></script>
+</head>
+<body>
+    <h1><a href="index.html">AlumnStudio</a></h1>
+    <form id="queryForm" action="alumnosAction.php" method="POST">
+        <label>ID alumno: <input name="alumno_id" type="text" required></label><br>
+        <input type="radio" name="query" value="historico_notas" checked> Histórico de notas<br>
+        <button>Consultar</button>
+    </form>
+    
+    <div id="queryResult">
+        <table>
+            <thead>
+                <tr>
+                    <th>Asignatura</th>
+                    <th>Año</th>
+                    <th>Convocatoria</th>
+                    <th>Nota</th>
+                </tr>
+            </thead>    
+            <tbody></tbody>
+        </table>
+    </div>
+    
+    <hr>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Apellidos</th>
+                <th>Fecha de Nacimiento</th>
+                <th>Sexo</th>
+            </tr>
+        </thead>
+        <tbody id="alumnos-body">
+        
+        </tbody>
+    </table>
+    
+    <script>
+    $('#queryResult').hide();
+    $( "#queryForm" ).submit(function( event ) {
+      event.preventDefault();
+
+      var $form = $( this ),
+        id = $form.find( "input[name='alumno_id']" ).val(),
+        query = $form.find( "input[name='query']" ).val(),
+        url = $form.attr( "action" );
+
+      var posting = $.post( url, { alumno_id: id, query:  query} );
+
+      posting.done(function( data ) {
+            $('#queryResult tbody').html("");
+          if(typeof(data) == "string"){
+              $('#queryResult tbody').html(data);
+              return;
+          }
+          for(var i=0; i<data.length; i++){
+              var item=data[i];
+              var tr=document.createElement('tr');
+              var td_asignatura = document.createElement('td');
+              td_asignatura.innerHTML = item.asignatura;
+              tr.appendChild(td_asignatura);
+              var td_anyo = document.createElement('td');
+              td_anyo.innerHTML = item.anyo;
+              tr.appendChild(td_anyo);
+              var td_convocatoria = document.createElement('td');
+              td_convocatoria.innerHTML = item.convocatoria;
+              tr.appendChild(td_convocatoria);
+              var td_nota = document.createElement('td');
+              td_nota.innerHTML = item.valor;
+              tr.appendChild(td_nota);
+              
+              $('#queryResult tbody').append(tr);
+          }
+          $('#queryResult').show();
+      });
+    });
+        
+        
+    
+        $.getJSON( "alumnosAction.php", function( data ) {
+            for(var i=0; i<data.length; i++){
+                var item = data[i];
+                var row = document.createElement('tr');
+                var td_id = document.createElement('td');
+                td_id.innerHTML = item.id;
+                row.appendChild(td_id);
+                var td_nombre = document.createElement('td');
+                td_nombre.innerHTML = item.nombre;
+                row.appendChild(td_nombre);
+                var td_apellidos = document.createElement('td');
+                td_apellidos.innerHTML = item.apellidos;
+                row.appendChild(td_apellidos);
+                var td_fecha = document.createElement('td');
+                td_fecha.innerHTML = item.fecha_nacimiento;
+                row.appendChild(td_fecha);
+                var td_sexo = document.createElement('td');
+                td_sexo.innerHTML = item.sexo == 1 ? 'Hombre' : 'Mujer';
+                row.appendChild(td_sexo);
+                $("#alumnos-body").append(row);
+            }
+        });
+          
+    
+    </script>
+</body>
+</html>
